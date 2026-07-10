@@ -15,9 +15,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUTH_DIR = path.join(__dirname, "..", "auth_info");
 const PREFIX = "!";
 
+// Método de vinculación:
+// - "qr" (por defecto): escanear un código QR desde WhatsApp > Dispositivos vinculados
+// - "code": ingresar un código de 8 dígitos en el teléfono (requiere PAIRING_NUMBER)
+const PAIRING_METHOD = (process.env.PAIRING_METHOD ?? "qr").toLowerCase();
+const PAIRING_NUMBER = process.env.PAIRING_NUMBER?.replace(/[^0-9]/g, "");
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
+
+  const usePairingCode = PAIRING_METHOD === "code" && !state.creds.registered;
+
+  if (PAIRING_METHOD === "code" && !PAIRING_NUMBER) {
+    logger.error(
+      'PAIRING_METHOD="code" requiere la variable de entorno PAIRING_NUMBER (tu número con código de país, sin "+" ni espacios, ej: 549XXXXXXXXX).',
+    );
+    process.exit(1);
+  }
 
   const sock: WASocket = makeWASocket({
     version,
@@ -27,12 +42,26 @@ async function startBot() {
     browser: ["Bot-base", "Chrome", "1.0.0"],
   });
 
+  if (usePairingCode) {
+    // Pequeña espera para que el socket abra la conexión antes de pedir el código.
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(PAIRING_NUMBER!);
+        logger.info(
+          `📱 Código de vinculación: ${code}\nEn tu teléfono: WhatsApp → Ajustes → Dispositivos vinculados → Vincular con número de teléfono, e ingresa este código.`,
+        );
+      } catch (err) {
+        logger.error(err, "No se pudo generar el código de vinculación");
+      }
+    }, 3000);
+  }
+
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
+    if (qr && !usePairingCode) {
       logger.info("Escanea el código QR con WhatsApp para vincular el bot:");
       qrcode.generate(qr, { small: true });
     }
