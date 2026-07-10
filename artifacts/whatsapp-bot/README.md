@@ -29,6 +29,46 @@ Una vez vinculado (con cualquiera de las dos opciones), la sesión se guarda en 
 - `!uptime` — tiempo que lleva activo el bot
 - `!echo <texto>` — repite el texto enviado
 
+## Instalación en Termux (Android)
+
+1. Actualiza paquetes e instala Node.js y Git:
+   ```bash
+   pkg update && pkg upgrade -y
+   pkg install -y nodejs-lts git
+   ```
+2. Instala pnpm (gestor de paquetes que usa este proyecto):
+   ```bash
+   npm install -g pnpm
+   ```
+3. Clona el repositorio completo (el bot vive dentro de un monorepo, así que se necesita todo el repo, no solo la carpeta):
+   ```bash
+   git clone https://github.com/amilcargit1/Bot-base.git
+   cd Bot-base
+   ```
+4. Instala las dependencias de todo el proyecto (esto también descarga las del bot):
+   ```bash
+   pnpm install
+   ```
+5. Levanta el bot:
+   ```bash
+   pnpm --filter @workspace/whatsapp-bot run start
+   ```
+   - Para vincular por código QR (por defecto): escanea el QR que aparece en la terminal.
+   - Para vincular por código de teléfono en vez de QR:
+     ```bash
+     PAIRING_METHOD=code PAIRING_NUMBER=549XXXXXXXXX pnpm --filter @workspace/whatsapp-bot run start
+     ```
+6. Para que el bot siga corriendo aunque cierres Termux, usa `tmux` o `screen`:
+   ```bash
+   pkg install -y tmux
+   tmux new -s bot
+   pnpm --filter @workspace/whatsapp-bot run start
+   # Ctrl+B luego D para salir sin cerrar el proceso
+   # Para volver: tmux attach -t bot
+   ```
+
+**Nota:** mantén encendida la opción "Sin restricciones de batería" para Termux en los ajustes de Android, o el sistema puede matar el proceso en segundo plano.
+
 ## Agregar nuevos comandos
 
 Edita `src/commands/index.ts` y agrega una nueva entrada al objeto `commands` con el nombre del comando (sin el prefijo `!`) y una función `async ({ sock, jid, args, msg }) => { ... }`.
